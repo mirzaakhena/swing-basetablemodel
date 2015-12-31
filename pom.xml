@@ -29,7 +29,7 @@
   <scm>
     <connection>scm:git:git@github.com:mirzaakhena/swing-basetablemodel</connection>
     <developerConnection>scm:git:git@github.com:mirzaakhena/swing-basetablemodel</developerConnection>
-    <url>git@github.com:github.com:mirzaakhena/swing-basetablemodel</url>
+    <url>git@github.com:mirzaakhena/swing-basetablemodel</url>
   </scm>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
