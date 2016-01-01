@@ -15,6 +15,8 @@ just put an annotation to your model
 		@TableColumn(header="ADDR", order=3)
 		private String address;
 		
+		// getter, setter or other field
+		
 	}
 
 Then you can install it in your Jtable like this
