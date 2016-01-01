@@ -2,65 +2,29 @@
 
 This class help you out to create table in Swing JTable easily
 
-to create a table model, you should have hav a model class
-
-for example you have this model class
+just put an annotation to your model
 
 	public class Person {
 	
+		@TableColumn(header="ID", order=1)
 		private int id;
+		
+		@TableColumn(header="NAME", order=2)
 		private String name;
 		
-		public int getId() {
-			return id;
-		}
-		
-		public void setId(int id) {
-			this.id = id;
-		}
-		
-		public String getName() {
-			return name;
-		}
-		
-		public void setName(String name) {
-			this.name = name;
-		}
+		@TableColumn(header="ADDR", order=3)
+		private String address;
 		
 	}
 
-Then you can create a your PersonTableModel like this
+Then you can install it in your Jtable like this
 
-	public class PersonTableModel extends BaseTableModel<Person> {
+	BaseTableModel<Person> personTableModel = new BaseTableModel<>(){};
+	JTable table = new JTable(personTableModel);
 	
-		// this is your table headers
-		public PersonTableModel() {
-			super("ID", "Name");
-		}
-	
-		@Override
-		public Object getValueAt(int rowIndex, int columnIndex) {
-			Person p = getItem(rowIndex);
-			switch (columnIndex) {
-			case 0:
-				return p.getId();
-			case 1:
-				return p.getName();
-			}
-			return null;
-		}
-	
-	}
+Populate your table by doing like this
 
-then you can install it in your Jtable like this
-
-	JTable table = new JTable();
-	PersonTableModel personTableModel = new PersonTableModel();
-	table.setModel(personTableModel);
-	
-	List<Person> listPerson = youMethodToPopulateListPerson();
+	List<Person> listPerson = yourMethodToPopulateListPerson();
 	personTableModel.setItem(listPerson);
 
-Everytime you update your model, you can refresh your table just by calling 
-
-	personTableModel.setItem(listPerson);
+That's all you need to create a table :)
