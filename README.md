@@ -21,7 +21,7 @@ just put an annotation to your model
 
 Then you can install it in your Jtable like this
 
-	BaseTableModel<Person> personTableModel = new BaseTableModel<>(){};
+	BaseTableModel<Person> personTableModel = new BaseTableModel<Person>(){};
 	JTable table = new JTable(personTableModel);
 	
 Populate your table by doing like this
