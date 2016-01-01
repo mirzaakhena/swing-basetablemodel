@@ -1,6 +1,11 @@
 package com.mirzaakhena.swing.basetablemodel;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.swing.table.AbstractTableModel;
@@ -35,18 +40,64 @@ import javax.swing.table.AbstractTableModel;
 @SuppressWarnings("serial")
 public abstract class BaseTableModel<T> extends AbstractTableModel {
 
+	private static class Pair {
+		public Integer order;
+		public Object value;
+
+		public Pair(Integer order, Object value) {
+			this.order = order;
+			this.value = value;
+		}
+
+	}
+
 	private List<T> list;
 
-	private final String[] COLUMN_HEADER;
+	private String[] columnHeaders;
+
+	@SuppressWarnings("unchecked")
+	private Class<T> getClazz() {
+		final ParameterizedType type = (ParameterizedType) this.getClass().getGenericSuperclass();
+		Class<T> clazz = (Class<T>) type.getActualTypeArguments()[0];
+		return clazz;
+	}
 
 	/**
 	 * You must overide this constructor to provide the table column name
 	 * 
 	 * @param columnHeader
 	 */
-	public BaseTableModel(String... columnHeader) {
-		COLUMN_HEADER = columnHeader;
-		list = new ArrayList<T>();
+	public BaseTableModel() {
+
+		list = new ArrayList<>();
+
+		List<Pair> listName = new ArrayList<>();
+		Class<T> clazz = getClazz();
+
+		Field[] fields = clazz.getFields();
+		for (Field field : fields) {
+			if (field.isAnnotationPresent(TableColumn.class)) {
+				Annotation annotation = field.getAnnotation(TableColumn.class);
+				TableColumn tc = (TableColumn) annotation;
+				listName.add(new Pair(tc.order(), !tc.header().isEmpty() ? tc.header() : field.getName()));
+			}
+		}
+
+		Method[] methods = clazz.getMethods();
+		for (Method method : methods) {
+			if (method.isAnnotationPresent(TableColumn.class)) {
+				Annotation annotation = method.getAnnotation(TableColumn.class);
+				TableColumn tc = (TableColumn) annotation;
+				listName.add(new Pair(tc.order(), !tc.header().isEmpty() ? tc.header() : method.getName()));
+			}
+		}
+
+		Collections.sort(listName, (a, b) -> a.order - b.order);
+
+		columnHeaders = new String[listName.size()];
+		for (int i = 0; i < listName.size(); i++) {
+			columnHeaders[i] = listName.get(i).value.toString();
+		}
 	}
 
 	/**
@@ -59,7 +110,7 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 
 	@Override
 	public String getColumnName(int column) {
-		return COLUMN_HEADER[column];
+		return columnHeaders[column];
 	}
 
 	@Override
@@ -93,11 +144,44 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 	 * }
 	 * </pre>
 	 */
-	public abstract Object getValueAt(int rowIndex, int columnIndex);
+	public Object getValueAt(int rowIndex, int columnIndex) {
+
+		Object obj = getItem(rowIndex);
+
+		Field[] fields = obj.getClass().getFields();
+		Method[] methods = obj.getClass().getMethods();
+
+		try {
+			List<Pair> listValue = new ArrayList<>();
+			for (Field field : fields) {
+				if (field.isAnnotationPresent(TableColumn.class)) {
+					Annotation annotation = field.getAnnotation(TableColumn.class);
+					TableColumn tc = (TableColumn) annotation;
+					listValue.add(new Pair(tc.order(), field.get(obj)));
+				}
+			}
+			for (Method method : methods) {
+				if (method.isAnnotationPresent(TableColumn.class)) {
+					Annotation annotation = method.getAnnotation(TableColumn.class);
+					TableColumn tc = (TableColumn) annotation;
+					listValue.add(new Pair(tc.order(), method.invoke(obj)));
+				}
+			}
+
+			Collections.sort(listValue, (a, b) -> a.order - b.order);
+
+			return listValue.get(columnIndex).value;
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return "";
+	}
 
 	@Override
 	public int getColumnCount() {
-		return COLUMN_HEADER.length;
+		return columnHeaders.length;
 	}
 
 	/**
