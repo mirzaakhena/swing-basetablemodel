@@ -1,6 +1,6 @@
 package com.mirzaakhena.swing.basetablemodel;
 
-import java.lang.annotation.Annotation;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
@@ -51,7 +51,9 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 
 	}
 
-	private List<T> list;
+	private List<T> listData;
+
+	private List<AccessibleObject> listClassMember;
 
 	private String[] columnHeaders;
 
@@ -62,14 +64,10 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 		return clazz;
 	}
 
-	/**
-	 * You must overide this constructor to provide the table column name
-	 * 
-	 * @param columnHeader
-	 */
 	public BaseTableModel() {
 
-		list = new ArrayList<>();
+		listData = new ArrayList<>();
+		listClassMember = new ArrayList<>();
 
 		List<Pair> listName = new ArrayList<>();
 		Class<T> clazz = getClazz();
@@ -77,8 +75,8 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 		Field[] fields = clazz.getFields();
 		for (Field field : fields) {
 			if (field.isAnnotationPresent(TableColumn.class)) {
-				Annotation annotation = field.getAnnotation(TableColumn.class);
-				TableColumn tc = (TableColumn) annotation;
+				listClassMember.add(field);
+				TableColumn tc = field.getAnnotation(TableColumn.class);
 				listName.add(new Pair(tc.order(), !tc.header().isEmpty() ? tc.header() : field.getName()));
 			}
 		}
@@ -86,11 +84,13 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 		Method[] methods = clazz.getMethods();
 		for (Method method : methods) {
 			if (method.isAnnotationPresent(TableColumn.class)) {
-				Annotation annotation = method.getAnnotation(TableColumn.class);
-				TableColumn tc = (TableColumn) annotation;
+				listClassMember.add(method);
+				TableColumn tc = method.getAnnotation(TableColumn.class);
 				listName.add(new Pair(tc.order(), !tc.header().isEmpty() ? tc.header() : method.getName()));
 			}
 		}
+
+		Collections.sort(listClassMember, (a, b) -> a.getAnnotation(TableColumn.class).order() - b.getAnnotation(TableColumn.class).order());
 
 		Collections.sort(listName, (a, b) -> a.order - b.order);
 
@@ -115,68 +115,29 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 
 	@Override
 	public int getRowCount() {
-		return list.size();
+		return listData.size();
 	}
 
-	/**
-	 * If you want to show class in table
-	 * 
-	 * <pre>
-	 * class Employee {
-	 *   public String name;
-	 *   public String address;
-	 *   ...
-	 * }
-	 * </pre>
-	 * 
-	 * you should do
-	 * 
-	 * <pre>
-	 * public Object getValueAt(int rowIndex, int columnIndex) {
-	 * 	Employee x = getItem(rowIndex);
-	 * 	switch (columnIndex) {
-	 * 	case 0:
-	 * 		return x.name;
-	 * 	case 1:
-	 * 		return x.address;
-	 * 	}
-	 * 	return null;
-	 * }
-	 * </pre>
-	 */
 	public Object getValueAt(int rowIndex, int columnIndex) {
 
 		Object obj = getItem(rowIndex);
 
-		Field[] fields = obj.getClass().getFields();
-		Method[] methods = obj.getClass().getMethods();
-
+		AccessibleObject ao = listClassMember.get(columnIndex);
 		try {
-			List<Pair> listValue = new ArrayList<>();
-			for (Field field : fields) {
-				if (field.isAnnotationPresent(TableColumn.class)) {
-					Annotation annotation = field.getAnnotation(TableColumn.class);
-					TableColumn tc = (TableColumn) annotation;
-					listValue.add(new Pair(tc.order(), field.get(obj)));
-				}
+			
+			if (ao instanceof Field) {
+				return ((Field) ao).get(obj);
+				
+			} else if (ao instanceof Method) {
+				return ((Method) ao).invoke(obj);
 			}
-			for (Method method : methods) {
-				if (method.isAnnotationPresent(TableColumn.class)) {
-					Annotation annotation = method.getAnnotation(TableColumn.class);
-					TableColumn tc = (TableColumn) annotation;
-					listValue.add(new Pair(tc.order(), method.invoke(obj)));
-				}
-			}
-
-			Collections.sort(listValue, (a, b) -> a.order - b.order);
-
-			return listValue.get(columnIndex).value;
 
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
 		return "";
+
 	}
 
 	@Override
@@ -191,58 +152,58 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 	 * @return
 	 */
 	public T getItem(int index) {
-		return list.get(index);
+		return listData.get(index);
 	}
 
 	public List<T> getAllItem() {
-		return list;
+		return listData;
 	}
 
 	public void setItem(List<T> x) {
 		if (x == null) {
-			list.clear();
+			listData.clear();
 		} else {
-			list = x;
+			listData = x;
 		}
 		fireTableDataChanged();
 	}
 
-	public void insert(T x) {
-		list.add(x);
-		int n = list.size() - 1;
+	public void add(T x) {
+		listData.add(x);
+		int n = listData.size() - 1;
 		fireTableRowsInserted(n, n);
 	}
 
 	public void insertOrder(T x, Comparable<T> comparator) {
-		int size = list.size();
+		int size = listData.size();
 		boolean found = false;
 		if (size != 0) {
 			int n = size - 1;
 			for (int i = 0; i < n && !found; i++) {
-				if (comparator.compareTo(list.get(i)) < 0) {
+				if (comparator.compareTo(listData.get(i)) < 0) {
 					insert(x, i);
 					found = true;
 				}
 			}
 		}
 		if (!found) {
-			insert(x);
+			add(x);
 		}
 	}
 
 	public void insert(T x, int index) {
-		list.add(index, x);
-		int n = list.size() - 1;
+		listData.add(index, x);
+		int n = listData.size() - 1;
 		fireTableRowsInserted(n, n);
 	}
 
-	public void insert(List<T> list) {
+	public void add(List<T> list) {
 		list.addAll(list);
 		fireTableDataChanged();
 	}
 
 	public void update(T x, int index) {
-		list.set(index, x);
+		listData.set(index, x);
 		fireTableRowsUpdated(index, index);
 	}
 
@@ -251,7 +212,7 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 	}
 
 	public void update(T x) {
-		int index = list.indexOf(x);
+		int index = listData.indexOf(x);
 		if (index != -1) {
 			fireTableRowsUpdated(index, index);
 		}
@@ -262,19 +223,19 @@ public abstract class BaseTableModel<T> extends AbstractTableModel {
 	}
 
 	public void delete(int index) {
-		list.remove(index);
+		listData.remove(index);
 		fireTableRowsDeleted(index, index);
 	}
 
 	public void delete(T x) {
-		int index = list.indexOf(x);
-		list.remove(x);
+		int index = listData.indexOf(x);
+		listData.remove(x);
 		fireTableRowsDeleted(index, index);
 
 	}
 
 	public void deleteAll() {
-		list.clear();
+		listData.clear();
 		fireTableDataChanged();
 	}
 
